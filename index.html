@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Modify PDF with PDF-lib</title>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.16.0/dist/pdf-lib.min.js"></script>
+</head>
+
+<body>
+    <input type="file" id="upload" accept=".pdf" />
+    <img id="logo" src="logo.png" style="display:none;" />
+    <button onclick="modifyPdf()">Add Logo and Download PDF</button>
+
+    <script>
+        async function modifyPdf() {
+            const existingPdfBytes = await fetchExistingPdf();
+            const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes);
+            const logoImgBytes = await fetchLogoImg();
+
+            const logoImg = await pdfDoc.embedPng(logoImgBytes);
+            const pages = pdfDoc.getPages();
+
+            // Define the size and position of the logo
+            const logoWidth = 257; // Desired logo width
+            const logoHeight = 333; // Desired logo height
+            const xPosition = 350; // Set the x-coordinate for the logo
+            const yPosition = 100; // Set the y-coordinate for the logo
+
+            pages.forEach(page => {
+                page.drawImage(logoImg, {
+                    x: xPosition,
+                    y: page.getHeight() - logoHeight - yPosition, // Adjust for y-coordinate from the top of the page
+                    width: logoWidth,
+                    height: logoHeight
+                });
+            });
+
+            const pdfBytes = await pdfDoc.save();
+            download(pdfBytes, "modifiedPdf.pdf", "application/pdf");
+        }
+
+        function fetchExistingPdf() {
+            return new Promise(resolve => {
+                const fileReader = new FileReader();
+                fileReader.onload = (event) => resolve(new Uint8Array(event.target.result));
+                const fileInput = document.getElementById('upload');
+                fileReader.readAsArrayBuffer(fileInput.files[0]);
+            });
+        }
+
+        function fetchLogoImg() {
+            return new Promise(resolve => {
+                const img = document.getElementById('logo');
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const logoWidth = 257; // Desired logo width
+                const logoHeight = 333; // Desired logo height
+                canvas.width = logoWidth;
+                canvas.height = logoHeight;
+                ctx.drawImage(img, 0, 0);
+                canvas.toBlob(blob => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => resolve(new Uint8Array(event.target.result));
+                    reader.readAsArrayBuffer(blob);
+                }, 'image/png');
+            });
+        }
+
+        function download(data, filename, type) {
+            const blob = new Blob([data], { type: type });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+    </script>
+</body>
+
+</html>
